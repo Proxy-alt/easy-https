@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, DEFAULT_SSL_DIR
+from .const import DOMAIN
 from .step_ca import StepCAManager
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,7 +57,9 @@ class EasyHTTPSStepCASwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn step-ca server on."""
-        ssl_dir = DEFAULT_SSL_DIR if os.path.exists(DEFAULT_SSL_DIR) else self.hass.config.path("ssl")
+        runtime_data = getattr(self.entry, "runtime_data", None) or self.hass.data[DOMAIN].get(self.entry.entry_id)
+        # Use the writable SSL dir resolved at setup rather than re-deriving it here
+        ssl_dir = runtime_data.ssl_dir
         storage_dir = self.hass.config.path(".storage", "easy_https")
         sec_inter_cert_path = f"{storage_dir}/secondary_intermediate.pem"
         sec_inter_key_path = f"{storage_dir}/secondary_intermediate_key.pem"

@@ -14,7 +14,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.network import get_url, NoURLAvailableError
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 
-from .const import DOMAIN, SERVICE_RENEW_CERTIFICATES
+from .const import DOMAIN, DEFAULT_SSL_DIR, SERVICE_RENEW_CERTIFICATES
 from .pki import PKIEngine
 from .step_ca import StepCAManager
 from .http_view import RootCADownloadView, RootCAPEMDownloadView
@@ -41,14 +41,26 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 def get_ssl_dir(hass: HomeAssistant) -> str:
-    """Return standard HA /ssl directory if existing or writable, falling back to hass.config.path('ssl')."""
-    if os.path.exists(DEFAULT_SSL_DIR):
-        return DEFAULT_SSL_DIR
-    try:
-        os.makedirs(DEFAULT_SSL_DIR, exist_ok=True)
-        return DEFAULT_SSL_DIR
-    except (PermissionError, OSError):
-        return hass.config.path("ssl")
+    """Return the first writable SSL directory: HA standard /ssl, else hass.config.path('ssl').
+
+    Existence alone is not enough — /ssl is often present but mounted read-only,
+    so each candidate is verified with an actual probe write. Blocking I/O: call
+    from an executor. Raises OSError if no candidate is writable.
+    """
+    candidates = [DEFAULT_SSL_DIR, hass.config.path("ssl")]
+    last_err: OSError | None = None
+    for candidate in candidates:
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            probe_path = os.path.join(candidate, ".easy_https_write_probe")
+            with open(probe_path, "wb") as probe:
+                probe.write(b"probe")
+            os.remove(probe_path)
+            return candidate
+        except OSError as err:
+            _LOGGER.debug("SSL directory %s is not writable: %s", candidate, err)
+            last_err = err
+    raise OSError(f"No writable SSL directory found (tried {', '.join(candidates)}): {last_err}")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -63,11 +75,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Root CA password missing from configuration entry.")
 
     # Storage paths
-    ssl_dir = get_ssl_dir(hass)
     storage_dir = hass.config.path(".storage", "easy_https")
 
-    os.makedirs(ssl_dir, exist_ok=True)
-    os.makedirs(storage_dir, exist_ok=True)
+    def _prepare_dirs() -> str:
+        os.makedirs(storage_dir, exist_ok=True)
+        return get_ssl_dir(hass)
+
+    try:
+        ssl_dir = await hass.async_add_executor_job(_prepare_dirs)
+    except OSError as err:
+        raise ConfigEntryNotReady(f"Cannot prepare SSL storage directories: {err}") from err
 
     root_key_path = os.path.join(storage_dir, "root_ca_key.pem")
     root_cert_path = os.path.join(ssl_dir, "root_ca.pem")
