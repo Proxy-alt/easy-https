@@ -11,6 +11,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.components import persistent_notification
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.network import get_url, NoURLAvailableError
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 
 from .const import DOMAIN, SERVICE_RENEW_CERTIFICATES
@@ -39,6 +40,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     return True
 
 
+def get_ssl_dir(hass: HomeAssistant) -> str:
+    """Return root /ssl directory if writable/existing, otherwise fallback to hass.config.path('ssl')."""
+    if os.path.exists("/ssl"):
+        return "/ssl"
+    try:
+        os.makedirs("/ssl", exist_ok=True)
+        return "/ssl"
+    except (PermissionError, OSError):
+        return hass.config.path("ssl")
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Easy HTTPS from a config entry."""
     config_data = {**entry.data, **entry.options}
@@ -51,7 +63,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady("Root CA password missing from configuration entry.")
 
     # Storage paths
-    ssl_dir = hass.config.path("ssl", "easy_https")
+    ssl_dir = get_ssl_dir(hass)
     storage_dir = hass.config.path(".storage", "easy_https")
 
     os.makedirs(ssl_dir, exist_ok=True)
@@ -143,13 +155,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except Exception as err:
         raise ConfigEntryNotReady(f"Failed to generate PKI certificates: {err}") from err
 
-    # Register HTTP views for direct 1-click Root CA download
-    hass.http.register_view(RootCADownloadView(root_cert_path))
-    hass.http.register_view(RootCAPEMDownloadView(root_cert_path))
+    # Register HTTP views for direct 1-click Root CA download.
+    # Views survive entry reloads and cannot be unregistered, so register only once.
+    views_registered_key = f"{DOMAIN}_views_registered"
+    if not hass.data.get(views_registered_key):
+        hass.http.register_view(RootCADownloadView(root_cert_path))
+        hass.http.register_view(RootCAPEMDownloadView(root_cert_path))
+        hass.data[views_registered_key] = True
 
     # Send HA Persistent Notification
-    primary_ip = ha_ips[0] if ha_ips else "YOUR_HA_IP"
-    download_url = f"http://{primary_ip}:8123/api/easy_https/root_ca.crt"
+    try:
+        base_url = get_url(hass, prefer_external=False)
+    except NoURLAvailableError:
+        primary_ip = ha_ips[0] if ha_ips else "YOUR_HA_IP"
+        base_url = f"http://{primary_ip}:8123"
+    download_url = f"{base_url}/api/easy_https/root_ca.crt"
 
     notification_msg = (
         f"🔒 **Easy HTTPS Setup Complete!**\n\n"
@@ -208,6 +228,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.info("Easy HTTPS certificates successfully renewed.")
             except Exception as err:
                 raise ServiceValidationError(f"Certificate renewal failed: {err}") from err
+
+            persistent_notification.async_create(
+                hass,
+                "Certificates renewed. Restart Home Assistant so the web server "
+                "picks up the new certificate.",
+                title="Easy HTTPS Certificates Renewed",
+                notification_id="easy_https_renewed",
+            )
 
         hass.services.async_register(DOMAIN, SERVICE_RENEW_CERTIFICATES, async_renew_certificates)
 

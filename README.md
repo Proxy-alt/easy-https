@@ -37,15 +37,15 @@ Easy HTTPS is a custom component for Home Assistant that simplifies managing loc
 
 The integration automatically outputs certificates into Home Assistant's standard SSL directory:
 
-- `/config/ssl/easy_https/fullchain.pem`
-- `/config/ssl/easy_https/privkey.pem`
-- `/config/ssl/easy_https/root_ca.pem`
+- `/ssl/fullchain.pem`
+- `/ssl/privkey.pem`
+- `/ssl/root_ca.pem`
 
 You can configure Home Assistant's `configuration.yaml` to point to these certificates:
 
 ```yaml
 homeassistant:
   http:
-    ssl_certificate: /config/ssl/easy_https/fullchain.pem
-    ssl_key: /config/ssl/easy_https/privkey.pem
+    ssl_certificate: /ssl/fullchain.pem
+    ssl_key: /ssl/privkey.pem
 ```

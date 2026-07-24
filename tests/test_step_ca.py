@@ -28,11 +28,6 @@ def test_step_ca_config_preparation():
         provisioners = data["authority"]["provisioners"]
         prov_types = [p["type"] for p in provisioners]
         assert "ACME" in prov_types
-        assert "JWK" in prov_types
-
-        # Check ED25519 provisioner
-        jwk_prov = next(p for p in provisioners if p["type"] == "JWK")
-        assert jwk_prov["key"]["crv"] == "Ed25519"
 
         print("\n[SUCCESS] step-ca configuration verification passed!")
 

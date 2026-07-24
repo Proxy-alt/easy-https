@@ -23,8 +23,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Easy HTTPS switch from config entry."""
-    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id, {})
-    step_mgr: StepCAManager = runtime_data.get("step_mgr")
+    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id)
+    step_mgr: StepCAManager | None = runtime_data.step_mgr if runtime_data else None
 
     if step_mgr:
         async_add_entities([EasyHTTPSStepCASwitch(entry, step_mgr)], update_before_add=True)
@@ -53,11 +53,11 @@ class EasyHTTPSStepCASwitch(SwitchEntity):
     @property
     def is_on(self) -> bool:
         """Return True if step-ca server is currently running."""
-        return bool(self.step_mgr.process or self.step_mgr.standalone_site)
+        return self.step_mgr.is_running
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn step-ca server on."""
-        ssl_dir = self.hass.config.path("ssl", "easy_https")
+        ssl_dir = "/ssl" if os.path.exists("/ssl") else self.hass.config.path("ssl")
         storage_dir = self.hass.config.path(".storage", "easy_https")
         sec_inter_cert_path = f"{storage_dir}/secondary_intermediate.pem"
         sec_inter_key_path = f"{storage_dir}/secondary_intermediate_key.pem"

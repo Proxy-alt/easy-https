@@ -30,6 +30,13 @@ class StepCAManager:
         """Find step-ca executable on the system PATH."""
         return shutil.which("step-ca")
 
+    @property
+    def is_running(self) -> bool:
+        """Return True if the step-ca process or standalone server is currently running."""
+        if self.process is not None and self.process.returncode is None:
+            return True
+        return self.standalone_site is not None
+
     def is_installed(self) -> bool:
         """Return True if step-ca binary is installed and executable."""
         return self.step_ca_path is not None
@@ -68,16 +75,6 @@ class StepCAManager:
                                 "maxDur": "2160h",
                                 "defaultDur": "2160h"
                             }
-                        }
-                    },
-                    {
-                        "type": "JWK",
-                        "name": "easy-https-ed25519",
-                        "encryptedKey": "",
-                        "key": {
-                            "kty": "OKP",
-                            "crv": "Ed25519",
-                            "use": "sig"
                         }
                     }
                 ]
@@ -122,17 +119,40 @@ class StepCAManager:
             try:
                 self.process = await asyncio.create_subprocess_exec(
                     *cmd,
-                    stdout=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.DEVNULL,
                     stderr=asyncio.subprocess.PIPE,
                 )
-                _LOGGER.info("step-ca server binary started with PID %s", self.process.pid)
-                return True
             except Exception as err:
                 _LOGGER.error("Failed to start step-ca binary, attempting standalone fallback: %s", err)
+            else:
+                # step-ca validates its config on startup; give it a moment to fail fast
+                await asyncio.sleep(1)
+                if self.process.returncode is None:
+                    asyncio.get_running_loop().create_task(self._drain_stderr(self.process))
+                    _LOGGER.info("step-ca server binary started with PID %s", self.process.pid)
+                    return True
+                stderr = await self.process.stderr.read()
+                _LOGGER.error(
+                    "step-ca exited immediately (code %s): %s — attempting standalone fallback",
+                    self.process.returncode,
+                    stderr.decode(errors="replace").strip(),
+                )
+                self.process = None
 
         # Standalone fallback mode
         _LOGGER.info("Starting standalone embedded CA server on port %s...", self.port)
         return await self._start_standalone_server(intermediate_cert_path, intermediate_key_path)
+
+    async def _drain_stderr(self, process: asyncio.subprocess.Process) -> None:
+        """Consume step-ca stderr so the pipe never fills, logging output at debug level."""
+        try:
+            while True:
+                line = await process.stderr.readline()
+                if not line:
+                    break
+                _LOGGER.debug("step-ca: %s", line.decode(errors="replace").rstrip())
+        except Exception:
+            pass
 
     async def _start_standalone_server(
         self, intermediate_cert_path: str, intermediate_key_path: str
@@ -185,15 +205,16 @@ class StepCAManager:
 
     async def async_stop(self) -> None:
         """Stop step-ca server process or standalone server gracefully."""
-        if self.process and self.process.returncode is None:
-            _LOGGER.info("Stopping step-ca process (PID: %s)...", self.process.pid)
-            self.process.terminate()
-            try:
-                async with asyncio.timeout(5):
-                    await self.process.wait()
-            except asyncio.TimeoutError:
-                _LOGGER.warning("step-ca did not terminate gracefully, killing process.")
-                self.process.kill()
+        if self.process:
+            if self.process.returncode is None:
+                _LOGGER.info("Stopping step-ca process (PID: %s)...", self.process.pid)
+                self.process.terminate()
+                try:
+                    async with asyncio.timeout(5):
+                        await self.process.wait()
+                except asyncio.TimeoutError:
+                    _LOGGER.warning("step-ca did not terminate gracefully, killing process.")
+                    self.process.kill()
             self.process = None
 
         if self.standalone_site:

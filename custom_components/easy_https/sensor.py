@@ -37,11 +37,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up Easy HTTPS sensors from config entry."""
-    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id, {})
-    ssl_dir = runtime_data.get("ssl_dir")
+    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id)
 
-    if not ssl_dir:
+    if not runtime_data:
         return
+
+    ssl_dir = runtime_data.ssl_dir
 
     cert_path = os.path.join(ssl_dir, "cert.pem")
     root_cert_path = os.path.join(ssl_dir, "root_ca.pem")

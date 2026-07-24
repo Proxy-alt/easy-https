@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 from homeassistant.config_entries import ConfigEntry
 
+from custom_components.easy_https import EasyHTTPSRuntimeData
 from custom_components.easy_https.diagnostics import async_get_config_entry_diagnostics
 from custom_components.easy_https.pki import PKIEngine
 
@@ -32,15 +33,15 @@ async def test_diagnostics_redaction():
         async def mock_executor(func, *args):
             return func(*args)
         hass.async_add_executor_job = mock_executor
-        hass.data = {
-            "easy_https": {
-                "entry_id": {
-                    "ssl_dir": tmp_dir,
-                    "step_mgr": MagicMock(is_installed=lambda: False, process=None, standalone_site=None),
-                }
-            }
-        }
+        runtime_data = EasyHTTPSRuntimeData(
+            ssl_dir=tmp_dir,
+            fullchain_path=os.path.join(tmp_dir, "fullchain.pem"),
+            privkey_path=os.path.join(tmp_dir, "privkey.pem"),
+            step_mgr=MagicMock(is_installed=lambda: False, is_running=False),
+        )
+        hass.data = {"easy_https": {"entry_id": runtime_data}}
         entry.entry_id = "entry_id"
+        entry.runtime_data = runtime_data
 
         diag = await async_get_config_entry_diagnostics(hass, entry)
 

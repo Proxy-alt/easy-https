@@ -16,9 +16,9 @@ async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> Dict[str, Any]:
     """Return diagnostics for a config entry."""
-    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id, {})
+    runtime_data = getattr(entry, "runtime_data", None) or hass.data[DOMAIN].get(entry.entry_id)
 
-    ssl_dir = runtime_data.get("ssl_dir")
+    ssl_dir = runtime_data.ssl_dir if runtime_data else None
     cert_info = {}
 
     if ssl_dir:
@@ -40,10 +40,10 @@ async def async_get_config_entry_diagnostics(
 
             cert_info = await hass.async_add_executor_job(_parse_cert)
 
-    step_mgr = runtime_data.get("step_mgr")
+    step_mgr = runtime_data.step_mgr if runtime_data else None
     step_ca_status = {
         "installed": step_mgr.is_installed() if step_mgr else False,
-        "running": bool(step_mgr and (step_mgr.process or step_mgr.standalone_site)),
+        "running": bool(step_mgr and step_mgr.is_running),
     }
 
     raw_config = {**entry.data, **entry.options}
