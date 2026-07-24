@@ -41,12 +41,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 def get_ssl_dir(hass: HomeAssistant) -> str:
-    """Return root /ssl directory if writable/existing, otherwise fallback to hass.config.path('ssl')."""
-    if os.path.exists("/ssl"):
-        return "/ssl"
+    """Return standard HA /ssl directory if existing or writable, falling back to hass.config.path('ssl')."""
+    if os.path.exists(DEFAULT_SSL_DIR):
+        return DEFAULT_SSL_DIR
     try:
-        os.makedirs("/ssl", exist_ok=True)
-        return "/ssl"
+        os.makedirs(DEFAULT_SSL_DIR, exist_ok=True)
+        return DEFAULT_SSL_DIR
     except (PermissionError, OSError):
         return hass.config.path("ssl")
 

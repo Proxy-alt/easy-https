@@ -11,6 +11,7 @@ CONF_ADDITIONAL_DOMAINS: Final = "additional_domains"
 
 DEFAULT_HA_IP: Final = "127.0.0.1"
 DEFAULT_STEP_CA_PORT: Final = 8443
+DEFAULT_SSL_DIR: Final = "/ssl"
 
 ATTR_EXPIRATION_DATE: Final = "expiration_date"
 ATTR_DAYS_REMAINING: Final = "days_remaining"
