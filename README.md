@@ -28,6 +28,11 @@ Easy HTTPS is a custom component for Home Assistant that simplifies managing loc
    - Enter your Home Assistant IP address(es) (e.g. `192.168.1.100, 10.0.0.5`).
    - (Optional) Enable the `step-ca` server for external app certificate issuance.
 
+## Security & Key Encryption Architecture
+
+- **Root CA Private Key (`root_ca_key.pem`)**: **Encrypted with AES-256 (PKCS#8)** using the password specified during Config Flow setup. This ensures your master Root CA key cannot be compromised or used to issue arbitrary certificates if exported.
+- **HA Leaf Certificate Private Key (`privkey.pem`)**: **Unencrypted by design**. Web servers and Home Assistant's `http` component require a passphraseless leaf key to load the TLS socket context (`ssl_context.load_cert_chain`) automatically upon system reboot without requiring manual passphrase entry.
+
 ## Certificate Paths
 
 The integration automatically outputs certificates into Home Assistant's standard SSL directory:
