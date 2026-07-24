@@ -1,0 +1,3 @@
+renew_certificates:
+  name: Renew Certificates
+  description: Manually trigger renewal and regeneration of Home Assistant leaf certificates.

@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure Easy HTTPS",
+        "description": "Set up private PKI to secure your Home Assistant instance and local applications with TLS certificates.",
+        "data": {
+          "root_password": "Root CA Encryption Password",
+          "ha_ips": "Home Assistant IP Address(es) (comma-separated)",
+          "enable_step_ca": "Enable step-ca server for local apps",
+          "additional_domains": "Additional Domain Names (comma-separated, optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_password": "Root CA password must be at least 8 characters long.",
+      "invalid_ip": "One or more provided IP addresses are invalid.",
+      "pki_generation_failed": "Failed to generate certificates. Check logs for details."
+    },
+    "abort": {
+      "already_configured": "Easy HTTPS is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Easy HTTPS Settings",
+        "description": "Update Home Assistant IP addresses or toggle the step-ca server.",
+        "data": {
+          "ha_ips": "Home Assistant IP Address(es) (comma-separated)",
+          "enable_step_ca": "Enable step-ca server for local apps",
+          "additional_domains": "Additional Domain Names (comma-separated, optional)"
+        }
+      }
+    }
+  }
+}

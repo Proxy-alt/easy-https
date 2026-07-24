@@ -1,0 +1,22 @@
+{
+  "entity": {
+    "sensor": {
+      "ha_leaf_cert_expiration": {
+        "default": "mdi:certificate"
+      },
+      "root_ca_expiration": {
+        "default": "mdi:shield-key"
+      }
+    },
+    "button": {
+      "renew_certificates": {
+        "default": "mdi:certificate-sync"
+      }
+    },
+    "switch": {
+      "step_ca_server": {
+        "default": "mdi:server-security"
+      }
+    }
+  }
+}

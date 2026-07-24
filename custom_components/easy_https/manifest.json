@@ -1,0 +1,11 @@
+{
+  "domain": "easy_https",
+  "name": "Easy HTTPS",
+  "codeowners": ["@easy-https"],
+  "config_flow": true,
+  "documentation": "https://github.com/easy-https/easy-https",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/easy-https/easy-https/issues",
+  "requirements": ["cryptography>=41.0.0"],
+  "version": "1.0.0"
+}
